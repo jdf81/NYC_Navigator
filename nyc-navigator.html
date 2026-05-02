@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a1628">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NYC Navigator">
+<title>NYC Navigator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Share+Tech+Mono&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a1628;touch-action:none;user-select:none;}
+#gc{display:block;width:100%;height:100%;}
+#ui{position:fixed;inset:0;pointer-events:none;z-index:20;}
+/* TOP HUD */
+#hud{
+  position:absolute;top:0;left:0;right:0;
+  padding:env(safe-area-inset-top,10px) 12px 0;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  pointer-events:none;
+}
+#modeTag{
+  background:rgba(10,22,40,0.88);
+  border:2px solid rgba(255,255,255,0.25);
+  border-radius:8px;
+  padding:7px 14px;
+  font-family:'Black Han Sans',sans-serif;
+  font-size:15px;color:#ffe080;
+  letter-spacing:2px;
+  text-shadow:0 0 10px rgba(255,224,128,0.6);
+}
+#boroughTag{
+  background:rgba(10,22,40,0.88);
+  border:2px solid rgba(255,255,255,0.15);
+  border-radius:8px;
+  padding:7px 14px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:#a0d4ff;
+  text-align:right;max-width:180px;line-height:1.4;
+}
+/* MINIMAP */
+#mmWrap{
+  position:absolute;top:env(safe-area-inset-top,10px);left:50%;
+  transform:translateX(-50%);
+  border:2.5px solid rgba(255,255,255,0.3);
+  border-radius:6px;
+  overflow:hidden;
+  box-shadow:0 0 20px rgba(0,0,0,0.6), inset 0 0 10px rgba(0,0,0,0.4);
+}
+#mm{display:block;}
+/* NOTIFICATION */
+#notif{
+  position:absolute;top:90px;left:50%;transform:translateX(-50%);
+  background:rgba(255,180,50,0.95);
+  border:2px solid rgba(255,220,100,0.8);
+  border-radius:10px;
+  padding:8px 20px;
+  font-family:'Black Han Sans',sans-serif;
+  font-size:12px;color:#1a0800;
+  letter-spacing:1px;
+  opacity:0;transition:opacity 0.4s;
+  pointer-events:none;white-space:nowrap;
+  text-align:center;max-width:85vw;
+}
+/* JOYSTICK */
+#joy{
+  position:absolute;
+  bottom:calc(env(safe-area-inset-bottom,24px) + 20px);
+  left:28px;
+  width:128px;height:128px;
+  pointer-events:all;
+}
+#joyBase{
+  position:absolute;inset:0;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  border:2.5px solid rgba(255,255,255,0.3);
+  backdrop-filter:blur(2px);
+}
+.joy-tick{position:absolute;background:rgba(255,255,255,0.25);border-radius:2px;}
+.joy-tick.v{width:2px;height:12px;left:63px;top:6px;}
+.joy-tick.v2{width:2px;height:12px;left:63px;bottom:6px;}
+.joy-tick.h{width:12px;height:2px;top:63px;left:6px;}
+.joy-tick.h2{width:12px;height:2px;top:63px;right:6px;}
+#joyKnob{
+  position:absolute;
+  width:52px;height:52px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,0.7), rgba(200,220,255,0.4));
+  border:2.5px solid rgba(255,255,255,0.8);
+  box-shadow:0 4px 12px rgba(0,0,0,0.5);
+  top:38px;left:38px;
+  will-change:transform;
+}
+/* ACTION BUTTON */
+#actBtn{
+  position:absolute;
+  bottom:calc(env(safe-area-inset-bottom,24px) + 28px);
+  right:28px;
+  width:88px;height:88px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #ffe090, #d48000);
+  border:3px solid rgba(255,240,160,0.9);
+  box-shadow:0 0 20px rgba(255,160,0,0.5), 0 4px 12px rgba(0,0,0,0.5);
+  display:none;align-items:center;justify-content:center;
+  font-family:'Black Han Sans',sans-serif;
+  font-size:13px;color:#1a0800;
+  pointer-events:all;cursor:pointer;
+  text-align:center;line-height:1.3;
+  letter-spacing:1px;
+  flex-direction:column;
+  animation:btnPulse 1.5s ease-in-out infinite;
+}
+@keyframes btnPulse{
+  0%,100%{box-shadow:0 0 20px rgba(255,160,0,0.5),0 4px 12px rgba(0,0,0,0.5);}
+  50%{box-shadow:0 0 35px rgba(255,200,0,0.8),0 4px 12px rgba(0,0,0,0.5);}
+}
+#actBtn .icon{font-size:20px;margin-bottom:2px;}
+/* BOUNDARY FLASH */
+#boundFlash{
+  position:absolute;inset:0;
+  background:rgba(255,50,50,0.0);
+  pointer-events:none;
+  transition:background 0.1s;
+}
+/* MODE TRANSITION */
+#modeTrans{
+  position:absolute;inset:0;
+  background:rgba(0,0,0,0);
+  pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity 0.5s;
+}
+#modeTrans span{
+  font-family:'Black Han Sans',sans-serif;
+  font-size:32px;color:#ffe080;
+  letter-spacing:4px;text-shadow:0 0 30px rgba(255,200,0,0.8);
+  opacity:0;
+}
+/* LEGEND */
+#legend{
+  position:absolute;bottom:calc(env(safe-area-inset-bottom,24px) + 24px);
+  left:50%;transform:translateX(-50%);
+  display:flex;gap:8px;align-items:center;
+  background:rgba(10,22,40,0.7);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:20px;padding:5px 12px;
+  pointer-events:none;
+}
+.leg-item{display:flex;align-items:center;gap:4px;}
+.leg-dot{width:10px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,0.5);}
+.leg-txt{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.7);}
+</style>
+</head>
+<body>
+<canvas id="gc"></canvas>
+<div id="ui">
+  <!-- TOP HUD -->
+  <div id="hud">
+    <div id="modeTag">⚓ SAILING</div>
+    <div id="boroughTag">NYC Waters</div>
+  </div>
+
+  <!-- MINIMAP -->
+  <div id="mmWrap"><canvas id="mm" width="90" height="74"></canvas></div>
+
+  <!-- NOTIFICATION -->
+  <div id="notif"></div>
+
+  <!-- BOUNDARY FLASH -->
+  <div id="boundFlash"></div>
+
+  <!-- MODE TRANSITION -->
+  <div id="modeTrans"><span id="transText"></span></div>
+
+  <!-- JOYSTICK -->
+  <div id="joy">
+    <div id="joyBase">
+      <div class="joy-tick v"></div>
+      <div class="joy-tick v2"></div>
+      <div class="joy-tick h"></div>
+      <div class="joy-tick h2"></div>
+    </div>
+    <div id="joyKnob"></div>
+  </div>
+
+  <!-- ACTION BUTTON -->
+  <div id="actBtn" onclick="handleAction()">
+    <div class="icon" id="actIcon">⚓</div>
+    <div id="actLabel">DOCK</div>
+  </div>
+
+  <!-- LEGEND -->
+  <div id="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#d4a020"></div><div class="leg-txt">MNHTN</div></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#d44030"></div><div class="leg-txt">BRKLN</div></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#50a848"></div><div class="leg-txt">QEENS</div></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#7868c8"></div><div class="leg-txt">BRONX</div></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#50a050"></div><div class="leg-txt">S.ISL</div></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const TW = 56, TH = 28;      // Isometric tile dimensions
+const COLS = 68, ROWS = 60;  // Map size
+
+const T = {OCEAN:0, WATER:1, MANHATTAN:2, BROOKLYN:3, QUEENS:4, BRONX:5, STATEN:6, PORT:7};
+
+const BORO_NAME = {
+  [T.MANHATTAN]:'Manhattan',[T.BROOKLYN]:'Brooklyn',
+  [T.QUEENS]:'Queens',[T.BRONX]:'The Bronx',[T.STATEN]:'Staten Island'
+};
+
+// Cell-shaded palette: top, left-face, right-face
+const PAL = {
+  [T.OCEAN]:   {t:'#060e18',l:null,r:null},
+  [T.WATER]:   {t:'#1a6ba0',l:'#1256805',r:'#18629a'},
+  [T.MANHATTAN]:{t:'#d4a020',l:'#9a7010',r:'#b88818'},
+  [T.BROOKLYN]: {t:'#d44030',l:'#9a2820',r:'#b83030'},
+  [T.QUEENS]:   {t:'#50a848',l:'#286e22',r:'#3e8c32'},
+  [T.BRONX]:    {t:'#7868c8',l:'#4840a0',r:'#5c54b4'},
+  [T.STATEN]:   {t:'#50a050',l:'#287428',r:'#3c8c3c'},
+  [T.PORT]:     {t:'#c89840',l:'#8a6010',r:'#a87020'},
+};
+// Fix water color values
+PAL[T.WATER].l = '#125680'; PAL[T.WATER].r = '#18629a';
+
+// ═══════════════════════════════════════════════════════════
+// NYC BOROUGH POLYGONS  [col, row]
+// ═══════════════════════════════════════════════════════════
+const POLY = {
+  manhattan:[
+    [25,9],[28,9],[30,11],[31,14],[31,20],[30,26],[29,32],
+    [29,38],[28,41],[26,41],[25,39],[24,35],[24,29],[24,23],
+    [24,17],[24,12],[25,10]
+  ],
+  bronx:[
+    [24,3],[30,2],[40,2],[50,3],[56,5],[60,8],[62,12],
+    [60,16],[55,18],[48,19],[42,18],[36,17],[32,15],[30,12],
+    [29,10],[27,10],[25,9],[24,7],[24,5]
+  ],
+  queens:[
+    [31,12],[38,10],[46,8],[54,8],[60,10],[64,14],[65,20],
+    [64,28],[60,35],[54,42],[46,44],[40,44],[36,42],[33,38],
+    [31,32],[30,26],[31,20],[31,14]
+  ],
+  brooklyn:[
+    [28,38],[30,36],[34,36],[40,37],[47,37],[52,36],[56,38],
+    [58,43],[57,50],[53,54],[46,57],[36,56],[29,52],[27,46],
+    [27,40]
+  ],
+  statenIsland:[
+    [8,43],[14,40],[20,39],[26,40],[28,44],[28,51],[25,55],
+    [18,57],[11,55],[7,51],[6,46]
+  ],
+  nycBounds:[
+    [4,2],[64,2],[66,10],[66,24],[64,36],[60,46],[54,58],
+    [36,59],[18,59],[10,57],[4,52],[4,38],[4,18]
+  ]
+};
+
+// Port definitions
+const PORTS = [
+  {c:22,r:18,name:'79th St Boat Basin',boro:T.MANHATTAN},
+  {c:22,r:26,name:'Hudson River Piers',boro:T.MANHATTAN},
+  {c:23,r:35,name:'Chelsea Piers',boro:T.MANHATTAN},
+  {c:27,r:41,name:'Battery Park City Marina',boro:T.MANHATTAN},
+  {c:31,r:39,name:'Brooklyn Bridge Park Pier',boro:T.BROOKLYN},
+  {c:28,r:47,name:'Red Hook Container Terminal',boro:T.BROOKLYN},
+  {c:34,r:54,name:'Sunset Park Marine Terminal',boro:T.BROOKLYN},
+  {c:46,r:42,name:'Sheepshead Bay Harbor',boro:T.BROOKLYN},
+  {c:34,r:20,name:'Long Island City Dock',boro:T.QUEENS},
+  {c:52,r:17,name:'College Point Marine Facility',boro:T.QUEENS},
+  {c:62,r:15,name:'Flushing Bay Marina',boro:T.QUEENS},
+  {c:20,r:41,name:'St George Ferry Terminal',boro:T.STATEN},
+  {c:13,r:52,name:'Tottenville Staten Island Ferry',boro:T.STATEN},
+  {c:30,r:6,name:'City Island Marina',boro:T.BRONX},
+  {c:56,r:7,name:'Throgs Neck Yacht Club',boro:T.BRONX},
+];
+
+// Neighborhood labels [col, row, name, minZoom]
+const LABELS = [
+  {c:26,r:11,n:'Washington Heights'},{c:26,r:16,n:'Harlem'},
+  {c:26,r:21,n:'Upper West Side'},{c:27,r:27,n:'Midtown'},
+  {c:27,r:33,n:'Chelsea'},{c:27,r:39,n:'Financial Dist'},
+  {c:38,r:6,n:'THE BRONX'},{c:44,r:15,n:'Astoria'},
+  {c:48,r:22,n:'Flushing'},{c:56,r:32,n:'Jamaica'},
+  {c:43,r:36,n:'QUEENS'},{c:31,r:40,n:'DUMBO'},
+  {c:38,r:44,n:'BROOKLYN'},{c:42,r:51,n:'Flatbush'},
+  {c:48,r:55,n:'Coney Island'},{c:16,r:47,n:'STATEN ISLAND'},
+  {c:14,r:53,n:'Tottenville'},{c:33,r:6,n:'South Bronx'},
+  {c:46,r:6,n:'Fordham'},{c:52,r:10,n:'Pelham Bay'},
+  {c:36,r:12,n:'Long Island City'},{c:29,r:25,n:'Hell\'s Kitchen'},
+];
+
+// ═══════════════════════════════════════════════════════════
+// MAP GENERATION
+// ═══════════════════════════════════════════════════════════
+const gMap  = new Uint8Array(COLS * ROWS);
+const gBldH = new Uint8Array(COLS * ROWS); // building heights
+
+function pip(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length-1; i < poly.length; j=i++) {
+    const xi=poly[i][0], yi=poly[i][1], xj=poly[j][0], yj=poly[j][1];
+    if (((yi>py)!==(yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+function tileAt(c, r) { return gMap[r*COLS+c]; }
+function bldAt(c,r)   { return gBldH[r*COLS+c]; }
+
+function buildMap() {
+  for (let r=0; r<ROWS; r++) {
+    for (let c=0; c<COLS; c++) {
+      let t = T.OCEAN;
+      if      (pip(c,r,POLY.manhattan))    t = T.MANHATTAN;
+      else if (pip(c,r,POLY.bronx))        t = T.BRONX;
+      else if (pip(c,r,POLY.queens))       t = T.QUEENS;
+      else if (pip(c,r,POLY.brooklyn))     t = T.BROOKLYN;
+      else if (pip(c,r,POLY.statenIsland)) t = T.STATEN;
+      else if (pip(c,r,POLY.nycBounds))    t = T.WATER;
+      gMap[r*COLS+c] = t;
+
+      // Building height (seeded randomish)
+      const s = ((c*1327+r*5237) ^ (c*r*13)) & 0xFF;
+      let bh = 0;
+      if (t===T.MANHATTAN) bh = 6 + (s%6)*5;
+      else if (t===T.BROOKLYN||t===T.BRONX) bh = 3 + (s%5)*3;
+      else if (t===T.QUEENS) bh = 3 + (s%4)*3;
+      else if (t===T.STATEN) bh = 2 + (s%3)*2;
+      else if (t===T.PORT) bh = 4;
+      gBldH[r*COLS+c] = bh;
+    }
+  }
+  // Stamp ports
+  for (const p of PORTS) {
+    if (p.c>=0&&p.c<COLS&&p.r>=0&&p.r<ROWS) {
+      gMap[p.r*COLS+p.c] = T.PORT;
+      gBldH[p.r*COLS+p.c] = 5;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CANVAS & RENDERING
+// ═══════════════════════════════════════════════════════════
+const gc  = document.getElementById('gc');
+const ctx = gc.getContext('2d');
+const mm  = document.getElementById('mm');
+const mmc = mm.getContext('2d');
+
+let W=0, H=0;
+function resize() {
+  W = gc.width  = window.innerWidth  * devicePixelRatio;
+  H = gc.height = window.innerHeight * devicePixelRatio;
+  gc.style.width  = window.innerWidth  + 'px';
+  gc.style.height = window.innerHeight + 'px';
+}
+
+// Camera (pixel coords in iso space)
+let camX=0, camY=0, camTX=0, camTY=0;
+
+function t2s(c, r) { // tile → screen pixel
+  return {
+    x: (c-r)*(TW/2) - camX + W/2,
+    y: (c+r)*(TH/2) - camY + H/2 - H*0.06
+  };
+}
+
+function updateCamera() {
+  camTX = (pl.col-pl.row)*(TW/2);
+  camTY = (pl.col+pl.row)*(TH/2);
+  camX += (camTX - camX) * 0.12;
+  camY += (camTY - camY) * 0.12;
+}
+
+// ── DRAW TILE ────────────────────────────────────────────
+function drawTile(c, r, t, bh, anim) {
+  const {x, y} = t2s(c, r);
+  const w = TW, h = TH;
+
+  // Frustum cull
+  if (x < -w*2 || x > W+w*2 || y < -bh-h*3 || y > H+h*2) return;
+
+  const pal = PAL[t];
+  if (!pal) return;
+
+  // Water animation
+  const isWater = (t===T.WATER);
+  const yOff = isWater ? Math.sin((c*0.6+r*0.4+anim*0.04)*1.3)*1.8 : 0;
+  const topY  = y - bh;
+
+  // ── Side faces (only for land/port with height) ──
+  if (bh > 0 && !isWater && t!==T.OCEAN) {
+    // Left face
+    ctx.beginPath();
+    ctx.moveTo(x,   topY);
+    ctx.lineTo(x+w/2, topY+h/2);
+    ctx.lineTo(x+w/2, y+h/2);
+    ctx.lineTo(x,   y);
+    ctx.closePath();
+    ctx.fillStyle = pal.l || '#000';
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Right face
+    ctx.beginPath();
+    ctx.moveTo(x+w/2, topY+h/2);
+    ctx.lineTo(x+w,   topY);
+    ctx.lineTo(x+w,   y);
+    ctx.lineTo(x+w/2, y+h/2);
+    ctx.closePath();
+    ctx.fillStyle = pal.r || '#000';
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // ── Top face ──
+  ctx.beginPath();
+  ctx.moveTo(x,       topY   + yOff);
+  ctx.lineTo(x+w/2,   topY+h/2 + yOff);
+  ctx.lineTo(x+w,     topY   + yOff);
+  ctx.lineTo(x+w/2,   topY-h/2 + yOff);
+  ctx.closePath();
+
+  if (isWater) {
+    // Animated water shimmer
+    const sh = Math.sin((c+r+anim*0.025)*0.9)*0.12;
+    ctx.fillStyle = `hsl(${208+sh*20},${62+sh*20}%,${37+sh*15}%)`;
+  } else {
+    ctx.fillStyle = pal.t;
+  }
+  ctx.fill();
+
+  if (t !== T.OCEAN) {
+    ctx.strokeStyle = isWater ? 'rgba(0,30,60,0.5)' : '#000';
+    ctx.lineWidth = isWater ? 0.8 : 1.5;
+    ctx.stroke();
+  }
+
+  // ── Port flag decoration ──
+  if (t === T.PORT) {
+    const fx = x+w/2, fy = topY - bh - 2;
+    ctx.strokeStyle='#5c3010'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx,fy-16); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(fx,fy-16); ctx.lineTo(fx+11,fy-11); ctx.lineTo(fx,fy-7);
+    ctx.closePath(); ctx.fillStyle='#e82020'; ctx.fill();
+    // Dock planks hint
+    ctx.fillStyle='rgba(180,130,60,0.5)';
+    ctx.fillRect(x+8,topY,TW-16,3);
+  }
+
+  // ── Water cross-hatching wave lines ──
+  if (isWater && (c+r) % 3 === 0) {
+    const waveAmp = Math.sin((c*0.8+r*0.5+anim*0.04)*1.5)*1.5;
+    ctx.strokeStyle='rgba(140,200,255,0.25)'; ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(x+w*0.25, topY+h*0.15+yOff+waveAmp);
+    ctx.lineTo(x+w*0.75, topY+h*0.15+yOff-waveAmp);
+    ctx.stroke();
+  }
+}
+
+// ── DRAW SHIP ────────────────────────────────────────────
+const shipWobble = {t:0};
+function drawShip(fc, fr) {
+  const {x, y} = t2s(fc, fr);
+  const bh = bldAt(Math.round(fr), Math.round(fc));
+  const w=TW, h=TH;
+  const bob = Math.sin(shipWobble.t*0.08)*2;
+  const ty  = y - bh + bob;
+
+  // Wake
+  for (const wp of wake) {
+    const ws = t2s(wp.c, wp.r);
+    const a  = wp.life * 0.45;
+    ctx.beginPath();
+    ctx.ellipse(ws.x+w/2, ws.y+h/4, wp.life*18+2, wp.life*5+1, 0, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(180,230,255,${a})`;
+    ctx.fill();
+  }
+
+  // Hull shadow
+  ctx.beginPath();
+  ctx.ellipse(x+w/2, ty+h*0.4, w*0.38, h*0.3, 0, 0, Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fill();
+
+  // Hull body
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.18, ty);
+  ctx.lineTo(x+w*0.82, ty);
+  ctx.lineTo(x+w*0.92, ty+h*0.28);
+  ctx.lineTo(x+w*0.5,  ty+h*0.52);
+  ctx.lineTo(x+w*0.08, ty+h*0.28);
+  ctx.closePath();
+  ctx.fillStyle='#e8e4d0'; ctx.fill();
+  ctx.strokeStyle='#1a1210'; ctx.lineWidth=2.5; ctx.stroke();
+
+  // Hull stripe
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.2, ty+h*0.1);
+  ctx.lineTo(x+w*0.8, ty+h*0.1);
+  ctx.strokeStyle='#2a6090'; ctx.lineWidth=2; ctx.stroke();
+
+  // Deck
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.28, ty);
+  ctx.lineTo(x+w*0.72, ty);
+  ctx.lineTo(x+w*0.72, ty-h*0.18);
+  ctx.lineTo(x+w*0.28, ty-h*0.18);
+  ctx.closePath();
+  ctx.fillStyle='#c8b870'; ctx.fill();
+  ctx.strokeStyle='#1a1210'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Mast
+  ctx.strokeStyle='#7a4820'; ctx.lineWidth=3;
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.5, ty-h*0.12);
+  ctx.lineTo(x+w*0.5, ty-h*1.4);
+  ctx.stroke();
+
+  // Boom
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.5, ty-h*0.8);
+  ctx.lineTo(x+w*0.2, ty-h*0.3);
+  ctx.stroke();
+
+  // Main sail
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.5, ty-h*1.35);
+  ctx.quadraticCurveTo(x+w*0.85, ty-h*0.9, x+w*0.5, ty-h*0.5);
+  ctx.quadraticCurveTo(x+w*0.52, ty-h*0.85, x+w*0.5, ty-h*1.35);
+  ctx.fillStyle='#f0ede0'; ctx.fill();
+  ctx.strokeStyle='#555'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Pennant
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.5, ty-h*1.4);
+  ctx.lineTo(x+w*0.68, ty-h*1.28);
+  ctx.lineTo(x+w*0.5, ty-h*1.18);
+  ctx.closePath();
+  ctx.fillStyle='#e02828'; ctx.fill();
+}
+
+// ── DRAW CHARACTER ────────────────────────────────────────
+function drawCharacter(fc, fr) {
+  const {x, y} = t2s(fc, fr);
+  const bh = bldAt(Math.round(fr), Math.round(fc));
+  const cx = x + TW*0.5;
+  const cy = y - bh - 2;
+  const bob = Math.sin(shipWobble.t*0.15)*1.5 * (Math.abs(joy.dx)+Math.abs(joy.dy) > 0.2 ? 1 : 0.2);
+
+  // Shadow
+  ctx.beginPath();
+  ctx.ellipse(cx, cy+1, 8, 4, 0, 0, Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fill();
+
+  // Legs (walking anim)
+  const legSwing = Math.sin(shipWobble.t*0.2)*6 * (Math.abs(joy.dx)+Math.abs(joy.dy) > 0.2 ? 1 : 0);
+  ctx.fillStyle='#2a2a5a';
+  // Left leg
+  ctx.save();
+  ctx.translate(cx-3, cy-8);
+  ctx.rotate((legSwing)*Math.PI/180);
+  ctx.fillRect(-2, 0, 4, 9);
+  ctx.restore();
+  // Right leg
+  ctx.save();
+  ctx.translate(cx+3, cy-8);
+  ctx.rotate((-legSwing)*Math.PI/180);
+  ctx.fillRect(-2, 0, 4, 9);
+  ctx.restore();
+
+  // Body
+  ctx.fillStyle='#3a80d4';
+  ctx.beginPath();
+  ctx.roundRect(cx-6, cy+bob-22, 12, 14, 2);
+  ctx.fill();
+  ctx.strokeStyle='#000'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Arms
+  const armSwing = Math.sin(shipWobble.t*0.2)*8 * (Math.abs(joy.dx)+Math.abs(joy.dy) > 0.2 ? 1 : 0);
+  ctx.strokeStyle='#3a80d4'; ctx.lineWidth=4; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(cx-6, cy+bob-19);
+  ctx.lineTo(cx-6+Math.sin((armSwing)*Math.PI/180)*8, cy+bob-14);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx+6, cy+bob-19);
+  ctx.lineTo(cx+6+Math.sin((-armSwing)*Math.PI/180)*8, cy+bob-14);
+  ctx.stroke();
+
+  // Head
+  ctx.beginPath();
+  ctx.arc(cx, cy+bob-28, 6.5, 0, Math.PI*2);
+  ctx.fillStyle='#f5c89a'; ctx.fill();
+  ctx.strokeStyle='#000'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Hat (NYC style — baseball cap)
+  ctx.fillStyle='#e02020';
+  ctx.beginPath();
+  ctx.arc(cx, cy+bob-31, 7, Math.PI, 0);
+  ctx.fill();
+  ctx.fillStyle='#c01010';
+  ctx.beginPath();
+  ctx.arc(cx, cy+bob-31, 7, 0, Math.PI);
+  ctx.fill();
+  ctx.strokeStyle='#000'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.arc(cx, cy+bob-31, 7, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#c01010';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy+bob-31);
+  ctx.lineTo(cx+11, cy+bob-29);
+  ctx.lineTo(cx+11, cy+bob-27);
+  ctx.lineTo(cx, cy+bob-27);
+  ctx.fill();
+  ctx.stroke();
+}
+
+// ── LABELS ────────────────────────────────────────────────
+function renderLabels(anim) {
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for (const lb of LABELS) {
+    const t = tileAt(lb.c, lb.r);
+    if (!t || t===T.OCEAN || t===T.WATER) continue;
+    const {x, y} = t2s(lb.c, lb.r);
+    if (x<-120||x>W+120||y<-50||y>H+50) continue;
+    const bh = bldAt(lb.r, lb.c);
+    const lx = x + TW/2, ly = y - bh - 20;
+    const big = lb.n === lb.n.toUpperCase();
+    ctx.font = big ? `bold 11px 'Black Han Sans',sans-serif` : `9px 'Share Tech Mono',monospace`;
+    ctx.strokeStyle='rgba(0,0,0,0.85)'; ctx.lineWidth=3.5;
+    ctx.strokeText(lb.n, lx, ly);
+    ctx.fillStyle = big ? '#ffe080' : '#d0e8ff';
+    ctx.fillText(lb.n, lx, ly);
+  }
+}
+
+// ── PORT HOVER RING ────────────────────────────────────────
+function renderPortRing(anim) {
+  if (!nearPort) return;
+  const {x, y} = t2s(nearPort.c, nearPort.r);
+  const bh = bldAt(nearPort.r, nearPort.c);
+  const px = x+TW/2, py = y-bh;
+  const pulse = (Math.sin(anim*0.1)*0.4+0.6);
+  ctx.beginPath();
+  ctx.arc(px, py, 22+Math.sin(anim*0.08)*4, 0, Math.PI*2);
+  ctx.strokeStyle=`rgba(255,220,80,${pulse})`;
+  ctx.lineWidth=3; ctx.stroke();
+  // Port name
+  ctx.font="bold 10px 'Black Han Sans',sans-serif";
+  ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.lineWidth=3;
+  ctx.strokeText(nearPort.name, px, py-26);
+  ctx.fillStyle='#ffe080';
+  ctx.fillText(nearPort.name, px, py-26);
+}
+
+// ── MINIMAP ────────────────────────────────────────────────
+const MM_COLS=COLS, MM_ROWS=ROWS;
+const MM_W=90, MM_H=74;
+const MM_COLORS = {
+  [T.OCEAN]:'#06101a',[T.WATER]:'#1a5580',
+  [T.MANHATTAN]:'#c49020',[T.BROOKLYN]:'#b03828',
+  [T.QUEENS]:'#489038',[T.BRONX]:'#6858b8',
+  [T.STATEN]:'#489048',[T.PORT]:'#c09030',
+};
+let mmDirty=true;
+const mmImgData = mmc.createImageData(MM_W, MM_H);
+
+function buildMinimap() {
+  const d = mmImgData.data;
+  const sx = MM_W/MM_COLS, sy = MM_H/MM_ROWS;
+  mmc.clearRect(0,0,MM_W,MM_H);
+  for (let r=0;r<MM_ROWS;r++) {
+    for (let c=0;c<MM_COLS;c++) {
+      const t  = tileAt(c,r);
+      const col= MM_COLORS[t]||'#000';
+      const mx = Math.floor(c*sx), my = Math.floor(r*sy);
+      const mw = Math.max(1,Math.floor(sx)), mh = Math.max(1,Math.floor(sy));
+      mmc.fillStyle=col;
+      mmc.fillRect(mx,my,mw,mh);
+    }
+  }
+  // Port dots
+  for (const p of PORTS) {
+    mmc.fillStyle='#ffe060';
+    mmc.fillRect(Math.floor(p.c*sx)-1,Math.floor(p.r*sy)-1,3,3);
+  }
+  mmDirty=false;
+}
+
+function renderMinimap(anim) {
+  if (mmDirty) buildMinimap();
+  // Player dot
+  const sx=MM_W/MM_COLS, sy=MM_H/MM_ROWS;
+  const px=pl.col*sx, py=pl.row*sy;
+  const pulse=(Math.sin(anim*0.12)*0.5+0.5);
+  // Draw player blip on top
+  mmc.clearRect(px-4,py-4,8,8);
+  // Re-draw underlying map fragment (simplified: just overdraw)
+  mmc.fillStyle='rgba(255,255,255,'+(0.7+pulse*0.3)+')';
+  mmc.beginPath();
+  mmc.arc(px,py,3,0,Math.PI*2);
+  mmc.fill();
+  // Viewport rect
+  const vw = (W/(TW*2))*sx*2, vh = (H/(TH*2))*sy*2;
+  mmc.strokeStyle='rgba(255,255,255,0.4)'; mmc.lineWidth=1;
+  mmc.strokeRect(px-vw/2, py-vh/2, vw, vh);
+}
+
+// ═══════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════
+const pl = {
+  col: 21, row: 25,        // Start in Hudson River
+  mode: 'sailing',         // 'sailing' | 'walking'
+  boro: null,              // current borough (walking)
+  docked: null,            // docked port
+  speed: 0.065
+};
+
+let animT  = 0;
+let nearPort = null;
+const wake = [];  // Wake particles [{c,r,life}]
+
+// ═══════════════════════════════════════════════════════════
+// MOVEMENT & BOUNDARIES
+// ═══════════════════════════════════════════════════════════
+function canSail(c, r) {
+  const ci=Math.round(c), ri=Math.round(r);
+  if (ci<0||ci>=COLS||ri<0||ri>=ROWS) return false;
+  const t=tileAt(ci,ri);
+  return t===T.WATER||t===T.PORT;
+}
+
+function canWalk(c, r, boro) {
+  const ci=Math.round(c), ri=Math.round(r);
+  if (ci<0||ci>=COLS||ri<0||ri>=ROWS) return false;
+  const t=tileAt(ci,ri);
+  return t===boro||t===T.PORT;
+}
+
+let boundaryFlashT = 0;
+function flashBoundary() {
+  boundaryFlashT = 20;
+  document.getElementById('boundFlash').style.background='rgba(255,40,40,0.22)';
+  setTimeout(()=>{ document.getElementById('boundFlash').style.background='rgba(255,40,40,0)'; },120);
+}
+
+function updateMovement() {
+  const {dx, dy} = joy;
+  if (Math.abs(dx)<0.08 && Math.abs(dy)<0.08) return;
+
+  const spd = pl.speed * (pl.mode==='walking' ? 0.75 : 1);
+  // ISO screen-aligned movement: right→NE, up→NW
+  const dc = (dx + dy) * spd;
+  const dr = (-dx + dy) * spd;
+
+  const nc = pl.col + dc;
+  const nr = pl.row + dr;
+
+  if (pl.mode === 'sailing') {
+    let moved = false;
+    if (canSail(nc, nr))           { pl.col=nc; pl.row=nr; moved=true; }
+    else if (canSail(nc, pl.row))  { pl.col=nc; moved=true; }
+    else if (canSail(pl.col, nr))  { pl.row=nr; moved=true; }
+    else flashBoundary();
+
+    if (moved) {
+      // Add wake
+      wake.push({c:pl.col, r:pl.row, life:1.0});
+      if (wake.length > 18) wake.shift();
+    }
+  } else {
+    let moved = false;
+    if (canWalk(nc, nr, pl.boro))           { pl.col=nc; pl.row=nr; moved=true; }
+    else if (canWalk(nc, pl.row, pl.boro))  { pl.col=nc; moved=true; }
+    else if (canWalk(pl.col, nr, pl.boro))  { pl.row=nr; moved=true; }
+    else flashBoundary();
+  }
+
+  pl.col = Math.max(0, Math.min(COLS-1, pl.col));
+  pl.row = Math.max(0, Math.min(ROWS-1, pl.row));
+}
+
+function updateWake() {
+  for (let i=wake.length-1; i>=0; i--) {
+    wake[i].life -= 0.022;
+    if (wake[i].life <= 0) wake.splice(i,1);
+  }
+}
+
+function checkNearPort() {
+  const pc=Math.round(pl.col), pr=Math.round(pl.row);
+  nearPort = null;
+  for (const p of PORTS) {
+    if (Math.abs(p.c-pc)<=2 && Math.abs(p.r-pr)<=2) { nearPort=p; break; }
+  }
+  const btn = document.getElementById('actBtn');
+  const icon= document.getElementById('actIcon');
+  const lbl = document.getElementById('actLabel');
+  if (nearPort && pl.mode==='sailing') {
+    btn.style.display='flex'; icon.textContent='⚓'; lbl.textContent='DOCK';
+  } else if (nearPort && pl.mode==='walking') {
+    btn.style.display='flex'; icon.textContent='⛵'; lbl.textContent='SAIL';
+  } else {
+    btn.style.display='none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ACTION HANDLER
+// ═══════════════════════════════════════════════════════════
+function handleAction() {
+  if (!nearPort) return;
+  if (pl.mode==='sailing') {
+    // Dock
+    pl.mode  = 'walking';
+    pl.col   = nearPort.c;
+    pl.row   = nearPort.r;
+    pl.boro  = nearPort.boro;
+    pl.docked= nearPort;
+    updateUI('🚶 EXPLORING', nearPort.name);
+    showNotif(`⚓ Docked at ${nearPort.name}!`);
+    modeTransition('ASHORE');
+  } else {
+    // Sail
+    pl.mode  = 'sailing';
+    pl.boro  = null;
+    pl.docked= null;
+    updateUI('⚓ SAILING', 'NYC Waters');
+    showNotif(`⛵ Cast off from ${nearPort.name}!`);
+    modeTransition('SAILING');
+    wake.length = 0;
+  }
+  checkNearPort();
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════
+function updateUI(mode, place) {
+  document.getElementById('modeTag').textContent = mode;
+  document.getElementById('boroughTag').textContent = place;
+}
+
+let notifTimer=null;
+function showNotif(msg) {
+  const el = document.getElementById('notif');
+  el.textContent = msg; el.style.opacity='1';
+  if (notifTimer) clearTimeout(notifTimer);
+  notifTimer = setTimeout(()=>{ el.style.opacity='0'; }, 3500);
+}
+
+function modeTransition(txt) {
+  const el = document.getElementById('modeTrans');
+  const sp = document.getElementById('transText');
+  sp.textContent = txt;
+  el.style.background='rgba(0,0,0,0.55)';
+  el.style.opacity='1';
+  sp.style.opacity='1';
+  setTimeout(()=>{ el.style.opacity='0'; el.style.background='rgba(0,0,0,0)'; sp.style.opacity='0'; }, 1200);
+}
+
+function updateHUDBorough() {
+  if (pl.mode==='walking') return;
+  const t = tileAt(Math.round(pl.col), Math.round(pl.row));
+  const n = BORO_NAME[t] || 'NYC Waters';
+  document.getElementById('boroughTag').textContent = n;
+}
+
+// ═══════════════════════════════════════════════════════════
+// JOYSTICK INPUT
+// ═══════════════════════════════════════════════════════════
+const joy = {active:false, startX:0, startY:0, dx:0, dy:0};
+const KNOB_R = 38;
+const joyEl   = document.getElementById('joy');
+const joyKnob = document.getElementById('joyKnob');
+
+function joyCenter() {
+  const r = joyEl.getBoundingClientRect();
+  return {x: r.left+64, y: r.top+64};
+}
+
+joyEl.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  joy.active=true;
+  joy.startX=t.clientX; joy.startY=t.clientY;
+},{passive:false});
+
+joyEl.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if (!joy.active) return;
+  const t=e.touches[0];
+  const cn=joyCenter();
+  let dx=t.clientX-cn.x, dy=t.clientY-cn.y;
+  const d=Math.sqrt(dx*dx+dy*dy);
+  if (d>KNOB_R){dx=dx/d*KNOB_R; dy=dy/d*KNOB_R;}
+  joy.dx=dx/KNOB_R; joy.dy=dy/KNOB_R;
+  joyKnob.style.left=(38+dx-26)+'px';
+  joyKnob.style.top=(38+dy-26)+'px';
+},{passive:false});
+
+joyEl.addEventListener('touchend', ()=>{
+  joy.active=false; joy.dx=0; joy.dy=0;
+  joyKnob.style.left='38px'; joyKnob.style.top='38px';
+});
+
+// Keyboard fallback
+const keys={};
+document.addEventListener('keydown',e=>{ keys[e.key]=true; if(e.key===' '||e.key==='Enter') handleAction(); });
+document.addEventListener('keyup',e=>{ keys[e.key]=false; });
+function handleKeys() {
+  let dx=0,dy=0;
+  if(keys['ArrowLeft']||keys['a']||keys['A'])  dx=-1;
+  if(keys['ArrowRight']||keys['d']||keys['D']) dx= 1;
+  if(keys['ArrowUp']||keys['w']||keys['W'])    dy=-1;
+  if(keys['ArrowDown']||keys['s']||keys['S'])  dy= 1;
+  if(!joy.active){joy.dx=dx;joy.dy=dy;}
+}
+
+// ═══════════════════════════════════════════════════════════
+// MAIN RENDER LOOP
+// ═══════════════════════════════════════════════════════════
+function render() {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#06101a';
+  ctx.fillRect(0,0,W,H);
+
+  const pc=Math.round(pl.col), pr=Math.round(pl.row);
+  const range=32;
+
+  // Render tiles back-to-front (ascending diagonal sum)
+  for (let s=(pc-range)+(pr-range); s<=(pc+range)+(pr+range); s++) {
+    for (let c=Math.max(0,pc-range); c<=Math.min(COLS-1,pc+range); c++) {
+      const r=s-c;
+      if (r<0||r>=ROWS) continue;
+      drawTile(c, r, tileAt(c,r), bldAt(r,c), animT);
+    }
+  }
+
+  renderPortRing(animT);
+
+  if (pl.mode==='sailing') drawShip(pl.col, pl.row);
+  else                     drawCharacter(pl.col, pl.row);
+
+  renderLabels(animT);
+  // Minimap is a separate canvas — just update player dot
+  renderMinimap(animT);
+}
+
+// ═══════════════════════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════════════════════
+function loop() {
+  animT++;
+  shipWobble.t = animT;
+  handleKeys();
+  updateMovement();
+  updateWake();
+  updateCamera();
+  checkNearPort();
+  updateHUDBorough();
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+function init() {
+  resize();
+  window.addEventListener('resize', ()=>{ resize(); });
+
+  // Prevent default scroll/zoom on canvas
+  gc.addEventListener('touchstart',  e=>e.preventDefault(), {passive:false});
+  gc.addEventListener('touchmove',   e=>e.preventDefault(), {passive:false});
+  gc.addEventListener('contextmenu', e=>e.preventDefault());
+
+  showNotif('Building New York City…');
+  setTimeout(()=>{
+    buildMap();
+    buildMinimap();
+
+    // Find a good starting water tile near Hudson River
+    // Scan near (21, 25) for T.WATER
+    let found=false;
+    for (let dc=-3; dc<=3&&!found; dc++) {
+      for (let dr=-3; dr<=3&&!found; dr++) {
+        const tc=21+dc, tr=25+dr;
+        if (tc>=0&&tc<COLS&&tr>=0&&tr<ROWS&&tileAt(tc,tr)===T.WATER) {
+          pl.col=tc; pl.row=tr; found=true;
+        }
+      }
+    }
+
+    // Snap camera
+    camX=camTX=(pl.col-pl.row)*(TW/2);
+    camY=camTY=(pl.col+pl.row)*(TH/2);
+
+    showNotif('⚓ Welcome to NYC Navigator! Sail to a port to dock.');
+    updateUI('⚓ SAILING', 'Hudson River');
+    loop();
+  }, 80);
+}
+
+// Inline PWA manifest
+const manifest = {
+  name:'NYC Navigator',short_name:'NYC Nav',
+  start_url:'./',display:'standalone',
+  background_color:'#0a1628',theme_color:'#0a1628',
+  description:'Sail and explore New York City',
+  icons:[{src:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" fill="%230a1628"/><text y="140" font-size="120" x="20">⚓</text></svg>',sizes:'192x192',type:'image/svg+xml'}]
+};
+const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
+const mlink=document.createElement('link');
+mlink.rel='manifest'; mlink.href=URL.createObjectURL(blob);
+document.head.appendChild(mlink);
+
+init();
+</script>
+</body>
+</html>
